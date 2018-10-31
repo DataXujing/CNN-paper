@@ -1,0 +1,15 @@
+site_name: CNN学习
+site_author: 徐静
+site_favicon: icon.ico
+repo_url: https://github.com/DataXujing/CNN-model2/
+pages:
+  - 主页: index.md
+  - ResNet: chapter1.md
+  - Google Inception: chapter2.md
+  - R-CNN & SPP-net: chapter3.md
+  - Fast R-CNN: chapter4.md
+  - Faster R-CNN: chapter5.md
+  - YOLO: chapter6.md
+  - FCN(反卷积),STNet,CNN与RNN的混合结构: chapter7.md
+  - 关于: about.md
+theme: readthedocs
