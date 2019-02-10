@@ -3,30 +3,32 @@
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <meta name="author" content="徐静">
+  <title>Fast R-CNN - CNN学习</title>
+  
+
   <link rel="shortcut icon" href="../icon.ico">
   
-  <title>Fast R-CNN - CNN学习</title>
+
+  
   <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
 
   <link rel="stylesheet" href="../css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
-  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  <link rel="stylesheet" href="../css/highlight.css">
+
   
   <script>
     // Current page data
     var mkdocs_page_name = "Fast R-CNN";
-    var mkdocs_page_input_path = "chapter4.md";
-    var mkdocs_page_url = null;
   </script>
   
-  <script src="../js/jquery-2.1.1.min.js" defer></script>
-  <script src="../js/modernizr-2.8.3.min.js" defer></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
-  <script>hljs.initHighlightingOnLoad();</script> 
+  <script src="../js/jquery-2.1.1.min.js"></script>
+  <script src="../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../js/highlight.pack.js"></script>
+  <script src="../js/theme.js"></script> 
+
   
 </head>
 
@@ -40,65 +42,113 @@
         <a href=".." class="icon icon-home"> CNN学习</a>
         <div role="search">
   <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+    <input type="text" name="q" placeholder="Search docs" />
   </form>
 </div>
       </div>
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-	<ul class="current">
-	  
+        <ul class="current">
           
-            <li class="toctree-l1">
-		
-    <a class="" href="..">主页</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="..">主页</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter1/">ResNet</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter1/">ResNet</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter2/">Google Inception</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter2/">Google Inception</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter3/">R-CNN & SPP-net</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter3/">R-CNN、图像特征提取、selective Search、SPP-net</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1 current">
-		
-    <a class="current" href="./">Fast R-CNN</a>
-    <ul class="subnav">
+            <li>
+    <li class="toctree-l1 current">
+        <a class="current" href="./">Fast R-CNN</a>
+        
+            <ul>
             
-    <li class="toctree-l2"><a href="#fast-r-cnn">Fast R-CNN</a></li>
-    
-
-    </ul>
-	    </li>
+                <li class="toctree-l3"><a href="#fast-r-cnn">Fast R-CNN</a></li>
+                
+                    <li><a class="toctree-l4" href="#0">0.摘要</a></li>
+                
+                    <li><a class="toctree-l4" href="#1">1.简介</a></li>
+                
+                    <li><a class="toctree-l4" href="#2fast-r-cnn">2.Fast R-CNN架构与训练</a></li>
+                
+                    <li><a class="toctree-l4" href="#3-fast-r-cnn">3. Fast R-CNN检测</a></li>
+                
+                    <li><a class="toctree-l4" href="#4">4.主要结果</a></li>
+                
+                    <li><a class="toctree-l4" href="#5">5.结论</a></li>
+                
+                    <li><a class="toctree-l4" href="#6">6.其他说明</a></li>
+                
+                    <li><a class="toctree-l4" href="#reference">Reference</a></li>
+                
+            
+            </ul>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter5/">Faster R-CNN</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter5/">Faster R-CNN</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter6/">YOLO</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../ssd/">SSD</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../chapter7/">FCN(反卷积),STNet,CNN与RNN的混合结构</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../mask-r-cnn/">Mask R-CNN</a>
+        
+    </li>
+<li>
           
-            <li class="toctree-l1">
-		
-    <a class="" href="../about/">关于</a>
-	    </li>
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter6/">YOLO</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../chapter7/">FCN(反卷积),STNet,CNN与RNN的混合结构</a>
+        
+    </li>
+<li>
+          
+            <li>
+    <li class="toctree-l1 ">
+        <a class="" href="../about/">关于</a>
+        
+    </li>
+<li>
           
         </ul>
       </div>
@@ -125,8 +175,9 @@
     <li>Fast R-CNN</li>
     <li class="wy-breadcrumbs-aside">
       
-        <a href="https://github.com/DataXujing/CNN-model2/edit/master/docs/chapter4.md"
-          class="icon icon-github"> Edit on GitHub</a>
+        
+          <a href="https://github.com/DataXujing/CNN-model2/" class="icon icon-github"> Edit on GitHub</a>
+        
       
     </li>
   </ul>
@@ -137,7 +188,170 @@
               
                 <h2 id="fast-r-cnn">Fast R-CNN</h2>
 <hr />
-<p>更新中...</p>
+<h3 id="0">0.摘要</h3>
+<p><div align=center>
+<img src="../img/fast-R-CNN/p1.png" />
+</div></p>
+<h3 id="1">1.简介</h3>
+<div align=center>
+<img src="../img/fast-R-CNN/p2.png" />
+</div>
+
+<h4 id="11-r-cnnsppnet">1.1 R-CNN与SPPnet</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p3.png" />
+</div>
+
+<h4 id="12">1.2 贡献</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p4.png" />
+</div>
+
+<h3 id="2fast-r-cnn">2.Fast R-CNN架构与训练</h3>
+<p>Fast R-CNN的架构如下图（图1）所示：
+<div align=center>
+<img src="../img/fast-R-CNN/p5.png" />
+</div></p>
+<div align=center>
+<img src="../img/fast-R-CNN/p6.png" />
+</div>
+
+<h4 id="21-roi">2.1 RoI池化层</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p7.png" />
+</div>
+
+<h4 id="22">2.2 从预训练网络初始化</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p8.png" />
+</div>
+
+<h4 id="23">2.3 微调</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p9.png" />
+</div>
+
+<div align=center>
+<img src="../img/fast-R-CNN/p10.png" />
+</div>
+
+<div align=center>
+<img src="../img/fast-R-CNN/p11.png" />
+</div>
+
+<h4 id="24">2.4 尺度不变性</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p12.png" />
+</div>
+
+<h3 id="3-fast-r-cnn">3. Fast R-CNN检测</h3>
+<div align=center>
+<img src="../img/fast-R-CNN/p13.png" />
+</div>
+
+<h4 id="31-svd">3.1 使用截断的SVD来进行更快的检测</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p14.png" />
+</div>
+
+<p>① 物体分类和窗口回归都是通过全连接层实现的，假设全连接层输入数据为x，输出数据为y，全连接层参数为W，尺寸为u×v，那么该层全连接计算为: y=Wx(计算复杂度为u×v)</p>
+<p>② 若将W进行SVD分解，并用前t个特征值近似代替，即:W=U∑VT≈U(u,1:t)⋅∑(1:t,1:t)⋅V(v,1:t)T</p>
+<p>那么原来的前向传播分解成两步: y=Wx=U⋅(∑⋅VT)⋅x=U⋅z 计算复杂度为u×t+v×t，若t&lt;min(u,v)，则这种分解会大大减少计算量；</p>
+<p>在实现时，相当于把一个全连接层拆分为两个全连接层，第一个全连接层不含偏置，第二个全连接层含偏置；实验表明，SVD分解全连接层能使mAP只下降0.3%的情况下提升30%的速度，同时该方法也不必再执行额外的微调操作。</p>
+<div align=center>
+<img src="../img/fast-R-CNN/p26.png" />
+</div>
+
+<h3 id="4">4.主要结果</h3>
+<p>三个主要结果支持本文的贡献：</p>
+<ul>
+<li>VOC07，2010和2012的最高的mAP。</li>
+<li>相比R-CNN，SPPnet，快速训练和测试。</li>
+<li>在VGG16中微调卷积层改善了mAP。</li>
+</ul>
+<h4 id="41">4.1 实验配置</h4>
+<p>我们的实验使用了三个经过预训练的ImageNet网络模型，这些模型可以在线获得(https://github.com/BVLC/caffe/wiki/Model-Zoo)。第一个是来自R-CNN3的CaffeNet（实质上是AlexNet1）。 我们将这个CaffeNet称为模型S，即小模型。第二网络是来自14的VGG_CNN_M_1024，其具有与S相同的深度，但是更宽。 我们把这个网络模型称为M，即中等模型。最后一个网络是来自15的非常深的VGG16模型。由于这个模型是最大的，我们称之为L。在本节中，所有实验都使用单尺度训练和测试（s=600，详见尺度不变性：暴力或精细？）。</p>
+<div align=center>
+<img src="../img/fast-R-CNN/p15.png" />
+</div>
+
+<h4 id="42">4.2 多任务训练有用吗？</h4>
+<p>论文中的实验表明：多任务训练是方便的，因为它避免管理顺序训练任务的流水线，同时 多任务训练改进了分段训练的mAP。</p>
+<h4 id="43">4.3 尺度不变性：暴力或精细？</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p16.png" />
+</div>
+
+<div align=center>
+<img src="../img/fast-R-CNN/p17.png" />
+</div>
+
+<h4 id="44">4.4 我们需要更过训练数据吗？</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p18.png" />
+</div>
+
+<h4 id="45-svmsoftmax">4.5 SVM分类是否优于Softmax？</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p19.png" />
+</div>
+
+<h4 id="46">4.6 更多的候选区域更好吗？</h4>
+<div align=center>
+<img src="../img/fast-R-CNN/p20.png" />
+</div>
+
+<div align=center>
+<img src="../img/fast-R-CNN/p21.png" />
+</div>
+
+<h3 id="5">5.结论</h3>
+<div align=center>
+<img src="../img/fast-R-CNN/p22.png" />
+</div>
+
+<h3 id="6">6.其他说明</h3>
+<p>重述一下Fast R-CNN的过程:</p>
+<div align=center>
+<img src="../img/fast-R-CNN/p23.png" />
+</div>
+
+<div align=center>
+<img src="../img/fast-R-CNN/p24.png" />
+</div>
+
+<p>首先是读入一张图像，这里有两个分支，一路送入FCN（全卷机网络），输出 feature maps，另一路通过selective search提取region proposals（注意，Fast R-CNN论文中并没有明确说明使用selective search提取region proposals，但是Fast R-CNN是基于R-CNN的，姑且默认采用selective search提取region proposals吧。）提取的每个region proposal 都有一个对应的Ground-truth Bounding Box和Ground-truth class label。其中每个region proposals用四元数组进行定义，即(r, c, h, w)，即窗口的左上行列坐标与高和宽。值得注意的是，这里的坐标均是对应原图像的，而不是输出的feature maps。因此，还需要把原图像的坐标系映射到feature maps上。这一点也很简单，比如采用的是pre-trained 网络模型为VGG16的话，RoIPooling替换掉最后一个max pooling层的话，则原图像要经过4个max pooling层，输出的feature maps是原图像的1/16，因此，将原图像对应的四元数组转换到feature maps上就是每个值都除以16，并量化到最接近的整数。那么将region proposal的四元组坐标映射到feature maps上之后接下干什么呢？接下来就是把region proposal窗口框起来的那部分feature maps输入到RoIPooling（R-CNN是将其缩放到224x224，然后送入经过Fine-tuning的网络模型），得到固定大小的输出maps。</p>
+<p>那么现在就谈一下RoIPooling层是怎样得到输出的，如下图所示：</p>
+<div align=center>
+<img src="../img/fast-R-CNN/p25.png" />
+</div>
+
+<h3 id="reference">Reference</h3>
+<p>A. Krizhevsky, I. Sutskever, and G. Hinton. ImageNet classification with deep convolutional neural networks. In NIPS, 2012. ↩ ↩2 ↩3 ↩4</p>
+<p>Y. LeCun, B. Boser, J. Denker, D. Henderson, R. Howard, W. Hubbard, and L. Jackel. Backpropagation applied to handwritten zip code recognition. Neural Comp., 1989. ↩</p>
+<p>R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich feature hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. ↩ ↩2 ↩3 ↩4 ↩5 ↩6 ↩7 ↩8 ↩9</p>
+<p>P. Sermanet, D. Eigen, X. Zhang, M. Mathieu, R. Fergus, and Y. LeCun. OverFeat: Integrated Recognition, Localization and Detection using Convolutional Networks. In ICLR, 2014. ↩ ↩2 ↩3</p>
+<p>K. He, X. Zhang, S. Ren, and J. Sun. Spatial pyramid pooling in deep convolutional networks for visual recognition. In ECCV, 2014. ↩ ↩2 ↩3 ↩4 ↩5 ↩6 ↩7 ↩8 ↩9 ↩10 ↩11 ↩12 ↩13 ↩14 ↩15 ↩16 ↩17 ↩18 ↩19 ↩20 ↩21</p>
+<p>Y. Zhu, R. Urtasun, R. Salakhutdinov, and S. Fidler. segDeepM: Exploiting segmentation and context in deep neural networks for object detection. In CVPR, 2015. ↩ ↩2</p>
+<p>S. Lazebnik, C. Schmid, and J. Ponce. Beyond bags of features: Spatial pyramid matching for recognizing natural scene categories. In CVPR, 2006. ↩</p>
+<p>Y. Jia, E. Shelhamer, J. Donahue, S. Karayev, J. Long, R. Girshick, S. Guadarrama, and T. Darrell. Caffe: Convolutional architecture for fast feature embedding. In Proc. of the ACM International Conf. on Multimedia, 2014. ↩</p>
+<p>J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. FeiFei. ImageNet: A large-scale hierarchical image database. In CVPR, 2009. ↩</p>
+<p>D. Erhan, C. Szegedy, A. Toshev, and D. Anguelov. Scalable object detection using deep neural networks. In CVPR, 2014. ↩ ↩2</p>
+<p>P. Felzenszwalb, R. Girshick, D. McAllester, and D. Ramanan. Object detection with discriminatively trained part based models. TPAMI, 2010. ↩ ↩2 ↩3</p>
+<p>E. Denton, W. Zaremba, J. Bruna, Y. LeCun, and R. Fergus. Exploiting linear structure within convolutional networks for efficient evaluation. In NIPS, 2014. ↩</p>
+<p>J. Xue, J. Li, and Y. Gong. Restructuring of deep neural network acoustic models with singular value decomposition. In Interspeech, 2013. ↩</p>
+<p>K. Chatfield, K. Simonyan, A. Vedaldi, and A. Zisserman. Return of the devil in the details: Delving deep into convolutional nets. In BMVC, 2014. ↩</p>
+<p>K. Simonyan and A. Zisserman. Very deep convolutional networks for large-scale image recognition. In ICLR, 2015. ↩</p>
+<p>M. Lin, Q. Chen, and S. Yan. Network in network. In ICLR, 2014. ↩ ↩2 ↩3</p>
+<p>J. Carreira, R. Caseiro, J. Batista, and C. Sminchisescu. Semantic segmentation with second-order pooling. In ECCV, 2012. ↩</p>
+<p>R. Caruana. Multitask learning. Machine learning, 28(1), 1997. ↩</p>
+<p>R. Girshick, J. Donahue, T. Darrell, and J. Malik. Region-based convolutional networks for accurate object detection and segmentation. TPAMI, 2015. ↩</p>
+<p>X. Zhu, C. Vondrick, D. Ramanan, and C. Fowlkes. Do we need more training data or better models for object detection? In BMVC, 2012. ↩</p>
+<p>J. Uijlings, K. van de Sande, T. Gevers, and A. Smeulders. Selective search for object recognition. IJCV, 2013. ↩ ↩2</p>
+<p>P. Viola and M. Jones. Rapid object detection using a boosted cascade of simple features. In CVPR, 2001. ↩</p>
+<p>J. H. Hosang, R. Benenson, P. Dollár, and B. Schiele. What makes for effective detection proposals? arXiv preprint arXiv:1502.05082, 2015. ↩</p>
+<p>T. Lin, M. Maire, S. Belongie, L. Bourdev, R. Girshick, J. Hays, P. Perona, D. Ramanan, P. Dollár, and C. L. Zitnick. Microsoft COCO: common objects in context. arXiv e-prints, arXiv:1405.0312 [cs.CV], 2014. ↩</p>
+<p>https://alvinzhu.xyz/2017/10/10/fast-r-cnn/#fn:9</p>
               
             </div>
           </div>
@@ -145,10 +359,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../chapter5/" class="btn btn-neutral float-right" title="Faster R-CNN">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../chapter5/" class="btn btn-neutral float-right" title="Faster R-CNN"/>Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href="../chapter3/" class="btn btn-neutral" title="R-CNN & SPP-net"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../chapter3/" class="btn btn-neutral" title="R-CNN、图像特征提取、selective Search、SPP-net"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -162,7 +376,7 @@
 
   Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
 </footer>
-      
+	  
         </div>
       </div>
 
@@ -170,10 +384,10 @@
 
   </div>
 
-  <div class="rst-versions" role="note" style="cursor: pointer">
+<div class="rst-versions" role="note" style="cursor: pointer">
     <span class="rst-current-version" data-toggle="rst-current-version">
       
-          <a href="https://github.com/DataXujing/CNN-model2/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+          <a class="icon icon-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
         <span><a href="../chapter3/" style="color: #fcfcfc;">&laquo; Previous</a></span>
@@ -183,9 +397,6 @@
       
     </span>
 </div>
-    <script>var base_url = '..';</script>
-    <script src="../js/theme.js" defer></script>
-      <script src="../search/main.js" defer></script>
 
 </body>
 </html>
