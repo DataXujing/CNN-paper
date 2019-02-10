@@ -1,7 +1,7 @@
 ## R-CNN系列 & SPP-net
 ------
 
-我们本章的学习路线为:R-CNN,SPP-net,fast R-CNN,faster R-CNN,Mask R-CNN.
+我们本部分的学习路线为:R-CNN, Selective Search, SPP-net
 
 ### 1.R-CNN
 
@@ -524,13 +524,843 @@ PASCAL VOC 2012测试集上实现了53.3%的mAP；
 
 ------
 
-### 9. Selective Search for Object Regognition（论文解读）
+### 9. HOG(Histogram of Oriented Gradient)
+方向梯度直方图特征是一种在计算机视觉和图像处理中用来进行物体检测的特征描述子。它通过计算和统计图像局部区域的梯度方向直方图来构成特征。Hog特征结合SVM分类器已经被广泛应用于图像识别中，尤其在行人检测中获得了极大的成功。需要提醒的是，HOG+SVM进行行人检测的方法是法国研究人员Dalal在2005的CVPR上提出的，而如今虽然有很多行人检测算法不断提出，但基本都是以HOG+SVM的思路为主。
+
+其思想是 在一副图像中，局部目标的表象和形状（appearance and shape）能够被梯度或边缘的方向密度分布很好地描述。（本质：梯度的统计信息，而梯度主要存在于边缘的地方）
+
+**梯度的概念：**
+
+在图像中梯度的概念也是像素值变换最快的方向，把边缘（在图像合成中单一物体的轮廓叫做边缘）引入进来，边缘与梯度保持垂直方向。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p1.png" /> 
+</div>
+
+具体在HOG中方向梯度的实现：首先用[-1,0,1]梯度算子对原图像做卷积运算，得到x方向（水平方向，以向右为正方向）的梯度分量gradscalx，然后用[1,0,-1]T梯度算子对原图像做卷积运算，得到y方向（竖直方向，以向上为正方向）的梯度分量gradscaly。然后再用以下公式计算该像素点的梯度大小和方向。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p2.jpg" /> 
+</div>
+
+**直方图**
+
+这个就不做解释了！！！
+
+**方向梯度直方图HOG的提取**
+
+方向梯度直方图为图像局部区域的梯度特征量统计，我们为什么要提取这个东东呢？
+
+HOG主要应用于行人检测方面，以行人照片为例。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p3.png" /> 
+</div>
+
+上图是一张行人图的四种表示方式，原三色图，灰度图，边缘图，梯度图，人脑根据前期学习与先验知识很容易理解到图像中包含着一个行人，并可以根据一定情况将其从图像中抠选出来，但计算机是怎么思考的呢？怎样让计算机理解以上图像中包含的是一个行人呢？前三个图像现在情况不适用，所以选取梯度图，现在的梯度图同样也是人脑处理理解的平面结果，计算机是办不到的，需要将直观地的梯度图像转换成一种计算机容易理解的数据特征语言。
+
+对于64X128的图像而言，每8X8的像素组成一个cell，每2X2个cell组成一个块(block)，以8个像素为步长，那么，水平方向将有7个扫描窗口，垂直方向将有15个扫描窗口。也就是说，64X128的图片，总共有36X7X15=3780个特征。这里截取梯度图的一部分画图进行理解，尺寸与比例并不精确。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p4.png" /> 
+</div>
+
+单独将其中一个8X8的小格拿出来，方向梯度中指的方向范围为2π，360°，为了画直方图我们还需要选取合适的组距也就是bin，这里组距选取2π/9，也就是最后的直方图组数为9。下图为8X8像素的cell对应的方向梯度（未全部画出，共有8X8=64个）。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p5.png" /> 
+</div>
+
+　将上面的64个方向梯度，按着直方图的参数设置进行画图，其中梯度的大小在统计数量中呈线性关系，比如梯度大小为2，则直方图对应增加2个单位，
+画出的对应直方图假设如下所示：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p6.png" /> 
+</div>
+
+把上图中单个cell对应的方向直方图转换为单维向量，也就是按规定组距对对应方向梯度个数进行编码，（8,10,6,12,4,5,8,6,14），得到单个cell的9个特征，每个block（扫描窗口）包含2X2个cell也就是2X2X9=36个特征，一个64X128大小的图像最后得到的特征数为36X7X15=3780个。这样将一幅直观的梯度图通过分解提取变为计算机容易理解的特征向量。
+　　以上工作为HOG提取的主要内容，最后得到对应的行人的由方向梯度直方图HOG提取到的特征向量，但是计算机还是不知道这个数据数组代表了什么意思，什么时候这组向量代表行人，什么时候代表其他东西，怎样train，最后通过不断地学习，而后在检测积累的基础上对对未知图像检测识别有没有行人呢？那就是后一步SVM要做的事了。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p7.jpg" /> 
+</div>
+------
+
+### 10.LBP（Local Binary Pattern)
+
+LBP（Local Binary Pattern，局部二值模式）是一种用来描述图像局部纹理特征的算子；它具有旋转不变性和灰度不变性等显著的优点。它是首先由T. Ojala, M.Pietikäinen, 和D. Harwood 在1994年提出，用于纹理特征提取。而且，提取的特征是图像的局部的纹理特征；
+
+**LBP特征的描述**
+
+原始的LBP算子定义为在3X3的窗口内，以窗口中心像素为阈值，将相邻的8个像素的灰度值与其进行比较，若周围像素值大于中心像素值，则该像素点的位置被标记为1，否则为0。这样，3X3邻域内的8个点经比较可产生8位二进制数（通常转换为十进制数即LBP码，共256种），即得到该窗口中心像素点的LBP值，并用这个值来反映该区域的纹理信息。如下图所示：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p8.jpg" /> 
+</div>
+
+**LBP的改进版本**
+
+原始的LBP提出后，研究人员不断对其提出了各种改进和优化。
+
+（1）圆形LBP算子
+
+基本的 LBP算子的最大缺陷在于它只覆盖了一个固定半径范围内的小区域，这显然不能满足不同尺寸和频率纹理的需要。为了适应不同尺度的纹理特征，并达到灰度和旋转不变性的要求，Ojala等对 LBP 算子进行了改进，将 3×3邻域扩展到任意邻域，并用圆形邻域代替了正方形邻域，改进后的 LBP 算子允许在半径为 R 的圆形邻域内有任意多个像素点。从而得到了诸如半径为R的圆形区域内含有P个采样点的LBP算子；
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p9.jpg" /> 
+</div>
+
+（2）LBP旋转不变模式
+
+从 LBP 的定义可以看出，LBP 算子是灰度不变的，但却不是旋转不变的。图像的旋转就会得到不同的 LBP值。
+
+Maenpaa等人又将 LBP算子进行了扩展，提出了具有旋转不变性的 LBP 算子，即不断旋转圆形邻域得到一系列初始定义的 LBP值，取其最小值作为该邻域的 LBP 值。
+
+下图 给出了求取旋转不变的 LBP 的过程示意图，图中算子下方的数字表示该算子对应的 LBP值，图中所示的 8 种 LBP模式，经过旋转不变的处理，最终得到的具有旋转不变性的 LBP值为 15。也就是说，图中的 8种 LBP 模式对应的旋转不变的 LBP模式都是00001111。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p10.jpg" /> 
+</div>
+
+一个LBP算子可以产生不同的二进制模式，对于半径为R的圆形区域内含有P个采样点的LBP算子将会产生P2种模式。很显然，随着邻域集内采样点数的增加，二进制模式的种类是急剧增加的。例如：5×5邻域内20个采样点，有220＝1,048,576种二进制模式。如此多的二值模式无论对于纹理的提取还是对于纹理的识别、分类及信息的存取都是不利的。同时，过多的模式种类对于纹理的表达是不利的。例如，将LBP算子用于纹理分类或人脸识别时，常采用LBP模式的统计直方图来表达图像的信息，而较多的模式种类将使得数据量过大，且直方图过于稀疏。因此，需要对原始的LBP模式进行降维，使得数据量减少的情况下能最好的代表图像的信息。
+
+为了解决二进制模式过多的问题，提高统计性，Ojala提出了采用一种“等价模式”（Uniform Pattern）来对LBP算子的模式种类进行降维。Ojala等认为，在实际图像中，绝大多数LBP模式最多只包含两次从1到0或从0到1的跳变。因此，Ojala将“等价模式”定义为：当某个LBP所对应的循环二进制数从0到1或从1到0最多有两次跳变时，该LBP所对应的二进制就称为一个等价模式类。如00000000（0次跳变），00000111（只含一次从0到1的跳变），10001111（先由1跳到0，再由0跳到1，共两次跳变）都是等价模式类。除等价模式类以外的模式都归为另一类，称为混合模式类，例如10010111（共四次跳变）
+
+通过这样的改进，二进制模式的种类大大减少，而不会丢失任何信息。模式数量由原来的2P种减少为 P ( P-1)+2种，其中P表示邻域集内的采样点数。对于3×3邻域内8个采样点来说，二进制模式由原始的256种减少为58种，这使得特征向量的维数更少，并且可以减少高频噪声带来的影响。
+
+**LBP特征用于检测的原理**
+
+显而易见的是，上述提取的LBP算子在每个像素点都可以得到一个LBP“编码”，那么，对一幅图像（记录的是每个像素点的灰度值）提取其原始的LBP算子之后，得到的原始LBP特征依然是“一幅图片”（记录的是每个像素点的LBP值）。
+
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p11.jpg" /> 
+</div>
+
+LBP的应用中，如纹理分类、人脸分析等，一般都不将LBP图谱作为特征向量用于分类识别，而是采用LBP特征谱的统计直方图作为特征向量用于分类识别。
+
+因为，从上面的分析我们可以看出，这个“特征”跟位置信息是紧密相关的。直接对两幅图片提取这种“特征”，并进行判别分析的话，会因为“位置没有对准”而产生很大的误差。后来，研究人员发现，可以将一幅图片划分为若干的子区域，对每个子区域内的每个像素点都提取LBP特征，然后，在每个子区域内建立LBP特征的统计直方图。如此一来，每个子区域，就可以用一个统计直方图来进行描述；整个图片就由若干个统计直方图组成；
+
+例如：一幅100X100像素大小的图片，划分为10X10=100个子区域（可以通过多种方式来划分区域），每个子区域的大小为10X10像素；在每个子区域内的每个像素点，提取其LBP特征，然后，建立统计直方图；这样，这幅图片就有10X10个子区域，也就有了10X10个统计直方图，利用这10X10个统计直方图，就可以描述这幅图片了。之后，我们利用各种相似性度量函数，就可以判断两幅图像之间的相似性了；
+
+**对LBP特征向量进行提取的步骤**
+
+（1）首先将检测窗口划分为16×16的小区域（cell）；
+
+（2）对于每个cell中的一个像素，将相邻的8个像素的灰度值与其进行比较，若周围像素值大于中心像素值，则该像素点的位置被标记为1，否则为0。这样，3X3邻域内的8个点经比较可产生8位二进制数，即得到该窗口中心像素点的LBP值；
+
+（3）然后计算每个cell的直方图，即每个数字（假定是十进制数LBP值）出现的频率；然后对该直方图进行归一化处理。
+
+（4）最后将得到的每个cell的统计直方图进行连接成为一个特征向量，也就是整幅图的LBP纹理特征向量；
+
+然后便可利用SVM或者其他机器学习算法进行分类了。
+
+------
+
+### 11.Haar特征
+
+积分图就是只遍历一次图像就可以求出图像中所有区域像素和的快速算法，大大的提高了图像特征值计算的效率。
+
+积分图主要的思想是将图像从起点开始到各个点所形成的矩形区域像素之和作为一个数组的元素保存在内存中，当要计算某个区域的像素和时可以直接索引数组的元素，不用重新计算这个区域的像素和，从而加快了计算（这有个相应的称呼，叫做动态规划算法）。积分图能够在多种尺度下，使用相同的时间（常数时间）来计算不同的特征，因此大大提高了检测速度。
+
+我们来看看它是怎么做到的。
+
+积分图是一种能够描述全局信息的矩阵表示方法。积分图的构造方式是位置（i,j）处的值ii(i,j)是原图像(i,j)左上角方向所有像素的和：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p12.jpg" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p13.jpg" /> 
+</div>
+
+积分图构建算法：
+
+1）用s(i,j)表示行方向的累加和，初始化s(i,-1)=0;
+
+2）用ii(i,j)表示一个积分图像，初始化ii(-1,i)=0；
+
+3）逐行扫描图像，递归计算每个像素(i,j)行方向的累加和s(i,j)和积分图像ii(i,j)的值
+
+s(i,j)=s(i,j-1)+f(i,j)
+
+ii(i,j)=ii(i-1,j)+s(i,j)
+
+4）扫描图像一遍，当到达图像右下角像素时，积分图像ii就构造好了。
+
+积分图构造好之后，图像中任何矩阵区域的像素累加和都可以通过简单运算得到如图所示。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p14.jpg" /> 
+</div>
+
+设D的四个顶点分别为α、β、γ、δ，则D的像素和可以表示为
+
+Dsum = ii( α )+ii( β)-(ii( γ)+ii( δ ));
+
+而Haar-like特征值无非就是两个矩阵像素和的差，同样可以在常数时间内完成。所以矩形特征的特征值计算，只与此特征矩形的端点的积分图有关，所以不管此特征矩形的尺度变换如何，特征值的计算所消耗的时间都是常量。这样只要遍历图像一次，就可以求得所有子窗口的特征值。
+
+**Haar-like矩形特征拓展**
+
+Lienhart R．等对Haar-like矩形特征库作了进一步扩展，加入了旋转45。角的矩形特征。扩展后的特征大致分为4种类型：边缘特征、线特征环、中心环绕特征和对角线特征：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p15.jpg" /> 
+</div>
+
+在特征值的计算过程中，黑色区域的权值为负值，白色区域的权值为正值。而且权值与矩形面积成反比（使两种矩形区域中像素数目一致）；
+
+竖直矩阵特征值计算：
+
+对于竖直矩阵，与上面2处说的一样。
+
+45°旋角的矩形特征计算：
+
+对于45°旋角的矩形，我们定义RSAT(x,y)为点(x,y)左上角45°区域和左下角45°区域的像素和。
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p16.jpg" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p17.jpg" /> 
+</div>
+
+为了节约时间，减少重复计算，可按如下递推公式计算：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p18.jpg" /> 
+</div>
+
+而计算矩阵特征的特征值，是位于十字行矩形RSAT(x,y)之差。可参考下图：
+
+<div align=center>
+<img src="../img/R-CNN/HOG/p19.jpg" /> 
+</div>
+
+
+
+------
+
+### 12.SIFT(Scale Invariant Feature Transform)
+
+1999年British Columbia大学大卫.劳伊教授总结了现有的基于不变量技术的检测方法，并正式的提出一种基于尺度空间的，对图像缩放，旋转，甚至放射变换保持不变形的图像局部特征描述算子-SIFT(尺度不变特征变换),这种算法在2004年被加以完善。
+
+**SIFT简介**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/1.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/2.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/3.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/4.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/5.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/6.png" /> 
+</div>
+
+**SIFT算法实现细节**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/7.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/8.png" /> 
+</div>
+
+**关键点检测的相关概念**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/9.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/10.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/11.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/12.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/13.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/14.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/15.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/16.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/17.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/18.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/19.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/20.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/21.png" /> 
+</div>
+
+**关键点加测--DOG**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/22.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/23.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/24.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/25.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/26.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/27.png" /> 
+</div>
+
+**DOG局部极值检测**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/28.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/29.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/30.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/31.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/32.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/33.png" /> 
+</div>
+
+**关键点方向分配**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/34.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/35.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/36.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/37.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/38.png" /> 
+</div>
+
+**关键点描述**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/39.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/40.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/41.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/42.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/43.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/44.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/45.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/46.png" /> 
+</div>
+
+**关键点匹配**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/47.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/48.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/49.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/50.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/51.png" /> 
+</div>
+
+**消除错配点**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/52.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/53.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/54.png" /> 
+</div>
+
+**SIFT算法的应用**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/55.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/56.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/57.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/58.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/59.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/60.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/61.png" /> 
+</div>
+
+**SIFT算法的宽展与改进**
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/62.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/63.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/64.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/65.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/66.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/SIFT/67.png" /> 
+</div>
+
+
+------
+### 13.BOW(bag-of-words)
+
+
+**bag-of-words简介**
+
+Bag-of-words是信息检索领域常用的文档表示方法。在信息检索中，BOW模型假定对于一个文档，忽略他的单词顺序和语法、句法等要素。将其仅仅看做是若干词汇的集合，文档中每个单词的出现都是独立的，不依赖于其他单词是否出现。也就是说文档中任意一个位置的出现的任何单词，都不受该文档语义影响而独立选择。
+
+例如：
+
+```
+1. Bob likes to play basketball, Jim likes too.
+2. Bob also likes to play football games.
+```
+
+基于文档构建词表(对中文来说要先分词)
+
+```
+Vocabulary = {
+	1:'Bob',2:'like',3:'to',4:'play',5:'basketball',6:'also',7:'football',8:'games',9:'Jim',10:'too'
+}
+```
+
+构建10个不同的单词，利用词的索引号，上面两个文档用一个10维的向量表示：
+
+```
+D: [1,2,3,4,5,6,7,8,9,10]
+
+1. [1,2,1,1,1,0,0,0,1,1]
+2. [1,1,1,1,0,1,1,1,0,0]
+```
+
+缺点：
+
++ 维数灾难
+
++ 无法保留次序信息
+
++ 存在语义鸿沟的问题
+
++ 不包含任何语义信息
+
+以上向量也可以用直方图表示，词相当于直方图的箱的取值，新来的文档可以映射到直方图上。
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p1.png" /> 
+</div>
+
+并不是所有的词都用来建立词表
+
++ 相似的词： walking,walk,walks统一用walk。(词的聚类)(中文不存在)
+
++ 停用词： a，an,the,了，的等
+
++ 高频词 TF-IDF思想
+
+BOW实现步骤：
+
+1. 词汇表的建立： 聚类找类中心-vocabulary
+
+2. 样本训练： 对每个文档进行训练，得到每个文档的低位表示
+
+3. 新样本的识别： 词表单词到低维表示，到分类器预测
+
+**bag-of-visual-words(视觉词袋模型)**
+
+BOW应用在图像领域，可以构建视觉词袋模型。为了表示图像，可以将图像看做文档，即若干个‘视觉单词’的集合，同样的，视觉单词想回见没有顺序。
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p2.png" /> 
+</div>
+
+由于图像中的单词不像文本文档中的那样是分词后得到或现成的，我们首先需要从图像中提取出相互独立的视觉单词，这通常需要三个步骤：
+
++ 特征检测
+
++ 特征表示
+
++ 词汇表的生成
+
+SIFT算法（上节已经介绍）是提取图像中局部不变特征的应用最广泛的算法，因此可以使用SIFT算法从图像中提取不变特征点，作为视觉单词，并构造词汇表，用词汇表中的单词表示一幅图像
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p3.png" /> 
+</div>
+
+
+**bag-of-visual-words模型建立步骤**
+
+1.利用SIFT算法，从每类图像中提取视觉单词，将所有的视觉单词集合在一起
+
+以SIFT 128维为例，现有3张训练图片，对每一张训练图片都提取SIFT的128维特征，那么做种可以得到M=N1+N2+N3个128维的特征，Ni代表第i张图特征点的个数
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p4.png" /> 
+</div>
+
+
+2.利用k-means算法构造词库表-vocabulary
+
+SIFT提取的视觉单词向量，根据距离的远近，可以利用k-means算法将词意相近的词汇合并，作为词汇表中的基础词汇，假设我们将k设为4，那么词汇表的构造如下：
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p5.png" /> 
+</div>
+
+经过聚类词汇表中的单词数为4个（这里只是举例子，k是超参数,一百在几百上千）
+
+
+3.利用视觉词袋量化图像特征，利用词频表示图像
+
+利用SIFT算法，可以从每张图像中提取很多特征点，这些特征点都可以用词汇表中的单词近似替代，通过统计词汇表中每个单词在图像中出现的次数，可以将图像表示为一个k=4维的特征向量：
+
+```
+人  脸：[3,30,3,20]
+自行车：[20,3,3,3]
+吉  他：[8,12,32,7]
+```
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p6.png" /> 
+</div>
+
+总结过程如下：
+
+针对‘人脸、自行车、吉他‘这三个文档，抽取出一部分特征，构造一个词表，此表中包含4个视觉单词：
+
+<div align=center>
+<img src="../img/R-CNN/BOW/p7.png" /> 
+</div>
+
+最终’人脸，自行车，吉他’这三个文档皆可以用一个4维向量表示，最后根据三个文档想用部分出现的次数画成对应的直方图。
+
+bag-of-visual-words模型建好后，对于新图片，同样：
+
+1.先提取SIFT特征
+
+2.用词表中的单词将图像表示成数值向量直方图
+
+3.通过分类器进行分类（SVM），看他属于哪一类图片
+
+BOW识别率并不是很高60%-80%之间，一方面是数据量巨大的问题，另一方面是因为图像之间的相似度是很大的。
+
+------
+
+传统的的图像特征提取办法我们就介绍到这里，这样我们就可以很自如的阅读下面章节介绍的一些图像分类和目标检测的论文了！
+
+------
+
+### 14.Efficient Graph-Based Image Segmentation(基于图的图像分割)
+
+该算法是基于图的贪心聚类算法，实现简单，速度比较快，精度也还行。不过，目前直接用它做分割的应该比较少。
+
+**图的概念**
+
+因为该算法是将照片用加权图抽象化表示，所以补充图的一些基本概念。
+
+图：是由顶点集 v（vertices）和边集 E（edges）组成，表示为G=(V,E)，在本文中即为单个的像素点，连接一对顶点的边(vi,vj)具有权重w(vi,vj)，本文中的意义为顶点之间的*不相似度**，所用的是无向图。
+
+<div align=center>
+<img src="../img/R-CNN/seg/p1.png" /> 
+</div>
+
+树：特殊的图，图中任意两个顶点，都有路径相连接，但是没有回路。如上图中加粗的边所连接而成的图。如果看成一团乱连的珠子，只保留树中的珠子和连线，那么随便选个珠子，都能把这棵树中所有的珠子都提起来。如果，i和h这条边也保留下来，那么h,I,c,f,g就构成了一个回路。
+
+
+最小生成树（MST, minimum spanning tree）：特殊的树，给定需要连接的顶点，选择边权之和最小的树。上图即是一棵MST
+
+<div align=center>
+<img src="../img/R-CNN/seg/p2.png" /> 
+</div>
+
+本文中，初始化时每一个像素点都是一个顶点，然后逐渐合并得到一个区域，确切地说是连接这个区域中的像素点的一个MST。如图，棕色圆圈为顶点，线段为边，合并棕色顶点所生成的MST，对应的就是一个分割区域。分割后的结果其实就是森林。
+
+**相似性**
+
+其实就是聚类算法，那应该依据何种规则判定何时该合二为一，何时该继续划清界限呢？
+
+对于孤立的两个像素点，所不同的是颜色，自然就用颜色的距离来衡量两点的相似性，本文中是使用RGB的距离，即
+
+<div align=center>
+<img src="../img/R-CNN/seg/p3.png" /> 
+</div>
+
+当然也可以选择其他色彩空间的距离计算或其他的距离定义方法。
+
+**形状相似**
+
+前面提到的用颜色信息来聚类，修改相似性衡量标准，可以聚类成我们想要的特定形状。比如我们希望得到很多长条形的区域，那么可以用聚类后的所形成的区域的 **面积/周长 + 亮度值的差** 衡量两个子图或者两个像素之间的相似度。因为长条形的面积/周长会比较小。
+
+**全局阈值到自适应阈值**
+
+上面提到应该用亮度值之差来衡量两个像素点之间的差异性。对于两个区域（子图）或者一个区域和一个像素点的相似性，最简单的方法即只考虑连接二者的边的不相似度。
+
+<div align=center>
+<img src="../img/R-CNN/seg/p4.png" /> 
+</div>
+
+如图，已经形成了棕色和绿色两个区域，现在通过紫色边来判断这两个区域是否合并。那么我们就可以设定一个阈值，当两个像素之间的差异（即不相似度）小于该值时，合二为一。迭代合并，最终就会合并成一个个区域，这就是区域生长的基本思想：星星之火，可以燎原。
+
+<div align=center>
+<img src="../img/R-CNN/seg/p5.png" /> 
+</div>
+
+显然，上面这张图应该聚成右图所思的3类，高频区h,斜坡区s,平坦区p。如果我们设置一个全局阈值，那么如果h区要合并成一块的话，那么该阈值要选很大，但是那样就会把p和s区域也包含进来，分割结果太粗。如果以p为参考，那么阈值应该选特别小的值，那样的话，p区是会合并成一块，但是，h区就会合并成特别特别多的小块，如同一面支离破碎的镜子，分割结果太细。
+
+显然，全局阈值并不合适，那么自然就得用自适应阈值。对于p区该阈值要特别小，s区稍大，h区巨大。
+
+对于两个区域（原文中叫Component,实质上是一个MST,单独的一个像素点也可以看成一个区域）,本文使用了非常直观，但抗干扰性并不强的方法。先来两个定义，原文依据这两个附加信息来得到自适应阈值。
+
+
+一个区域的类内差异Int(C):
+<div align=center>
+<img src="../img/R-CNN/seg/p6.png" /> 
+</div>
+
+可以近似理解为一个区域内部最大的亮度差异值，定义是MST中不相似度最大的一条边。
+
+两个区域的类间差异Diff(C1,C2)
+<div align=center>
+<img src="../img/R-CNN/seg/p7.png" /> 
+</div>
+
+即连接两个区域所有边中，不相似度最小的边的不相似度，也就是两个区域最相似的地方的不相似度。
+
+那么直观的判断是否合并的标准
+<div align=center>
+<img src="../img/R-CNN/seg/p8.png" /> 
+</div>
+
+等价条件：
+
+<div align=center>
+<img src="../img/R-CNN/seg/p9.png" /> 
+</div>
+
+这个和聚类的思想一样一样的！
+
+ 特殊情况，当二者都是孤立的像素值时Int(C1)=0，所有像素都是"零容忍"只有像素值完全一样才能合并，自然会导致过分割。所以刚开始的时候，应该给每个像素点设定一个可以容忍的范围，当生长到一定程度时，就应该去掉该初始容忍值的作用。原文条件如下
+
+<div align=center>
+<img src="../img/R-CNN/seg/p10.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/seg/p11.png" /> 
+</div>
+
+其中|C|为区域C所包含的像素点的个数，如此，随着区域逐渐扩大，这一项的作用就越来越小，最后几乎可以忽略不计。那么k就是一个可以控制所形成的的区域的大小，如果k=0，那么，几乎每个像素都成为了一个独立的区域，如果k是无穷大，显然整张图片都会聚成一块。所以，k越大，分割后的图片也就越大。
+
+
+**算法步骤**
+
++ Step 1: 计算每一个像素点与其8邻域或4邻域的不相似度。
+
+<div align=center>
+<img src="../img/R-CNN/seg/p12.png" /> 
+</div>
+
+如左边所示，实线为只计算4领域，加上虚线就是计算8邻域，由于是无向图，按照从左到右，从上到下的顺序计算的话，只需要计算右图中灰色的线即可。
+
++ Step 2: 将边按照不相似度non-decreasing排列（从小到大）排序得到e1,e2,...,eN
+
++ Step 3: 选择e1
+
++ Step 4: 对当前选择的边en进行合并判断，假设所链接的顶点为(vi,vj)。如果满足合并条件：
+
+    - (1)vi,vj不属于同一个区域：
+
+    <div align=center>
+    <img src="../img/R-CNN/seg/p14.png" /> 
+    </div>
+
+    - (2)不相似度不大于二者内部的不相似度，则执行Step4。否则执行Step5.
+
++ Step 5: 更新阈值及类标号。
+更新类标号：将Id(vi)，Id(vj)的类标号统一为Id(vi)的标号。更新该类的不相似度的阈值为：
+
+<div align=center>
+<img src="../img/R-CNN/seg/p15.png" /> 
+</div>
+
+注意：由于不相似度小的边先合并，所以，wij即为当前合并后的区域的最大的边，即
+
+<div align=center>
+<img src="../img/R-CNN/seg/p16.png" /> 
+</div>
+
++ Step 6: 如果n<=N,则按照排好的顺序，选择下一条边执行Step 4，否则结束
+
+**结果展示**
+
+<div align=center>
+<img src="../img/R-CNN/seg/p17.png" /> 
+</div>
+
+<div align=center>
+<img src="../img/R-CNN/seg/p18.png" /> 
+</div>
+
+
+
+Segmentation parameters: | sigma | k| min 
+----|----|----|----
+|0.5|500|50
+
++ Sigma：先对原图像进行高斯滤波去噪，sigma即为高斯核的标准差
++ k: 控制合并后的区域的大小
++ min: 后处理参数，分割后会有很多小区域，当区域Ci像素点的个数|Ci|小于min时，选择与其差异最小的区域Cj合并即
+
+<div align=center>
+<img src="../img/R-CNN/seg/p19.png" /> 
+</div>
+
+------
+
+### 15.Selective Search for Object Regognition（论文解读）
 
 物体识别，在之前的做法主要是基于穷举搜索（Exhaustive Search）：选择一个窗口扫描整张图像（image），改变窗口的大小，继续扫描整张图像。这种做法是比较原始直观，改变窗口大小，扫描整张图像，非常耗时。若能过滤掉一些无用的box将会节省大量时间。这就是本文中Selective Search(选择性搜索)的优点。
 
 选择性搜索（Selective Search)综合了穷举搜索（Exhausticve Search)和分割（Segmentation)的方法，意在找到一些可能的目标位置集合。作者将穷举搜索和分割结合起来，采取组合策略保证搜索的多样性，其结果达到平均最好重合率为0.879。能够大幅度降低搜索空间，提高程序效率，减小计算量。
 
-*** Introduction**
+**基础介绍**
 
 图像（Image）包含的信息非常的丰富，其中的物体（Object）有不同的形状（shape）、尺寸（scale）、颜色（color）、纹理（texture），要想从图像中识别出一个物体非常的难，还要找到物体在图像中的位置，这样就更难了。下图给出了四个例子，来说明物体识别（Object Recognition）的复杂性以及难度。
 
@@ -551,22 +1381,390 @@ PASCAL VOC 2012测试集上实现了53.3%的mAP；
  在深入介绍Selective Search之前，先说说其需要考虑的几个问题：
 
  1.适应不同尺度（Capture All Scales）：穷举搜索（Exhaustive Selective）通过改变窗口大小来适应物体的不同尺度，选择搜索（Selective Search）同样无法避免这个问题。算法采用了图像分割（Image Segmentation）以及使用一种层次算法（Hierarchical Algorithm）有效地解决了这个问题。
- 
+
 2.多样化（Diversification）：单一的策略无法应对多种类别的图像。使用颜色（color）、纹理（texture）、大小（size）等多种策略对（【1】中分割好的）区域（region）进行合并。
 
 3.速度快（Fast to Compute）：算法，就像功夫一样，唯快不破！
 
-研究了一下，没有研究完，需要重要的参考文献：
+**区域合并算法**
 
-[1].Selective Search for Object Recognition
 
-[2].Efficient Graph-Based Image Segmentation
+<div align=center>
+<img src="../img/R-CNN/select-search/p1.jpg" /> 
+</div>
 
-[3].SIFT: Distance image features from scale-invariant keypoints
+**输入:** 彩色图片
 
-[4].HUG: Histograms of oriented gradients for human detection
+**输出:**物体位置的可能结果L
 
-[5].DPM: Object detection with discriminatively trained part based models
+1. 使用Efficient Graph-Based Image Segmentation的方法获取原始分割区域R={r1,r2,...,rn}
+2. 初始化相似度集合S为空集
+3. 计算两两相邻区域之间的相似度（见下一部分），将其添加到相似度集合S中
+4. 从相似度集合S中找出，相似度最大的两个区域ri和rj，将其合并成为一个区域rt,从相似度集合中出去原先与ri和rj相邻区域之间计算的相似度，计算rt与相邻区域（原先与ri或rj相邻的区域）的相似度，将其结果添加到相似度集合S中，同时将新区域rt添加到区域集合R中。
+5. 获取每个区域的Bounding Boxes，这个结果就是物体位置的可能结果L
+
+**多样化策略**
+
+论文中作者给出了两个方面的多样化策略：颜色空间多样化，相似多样化
+
+*颜色空间多样化*
+
+作者采用了8中不同的颜色方式，主要是为了考虑场景以及光照条件等。
+主要使用的颜色空间有：（1）RGB，（2）灰度I，（3）Lab，（4）rgI（归一化的rg通道加上灰度），（5）HSV，（6）rgb（归一化的RGB），（7）C，（8）H（HSV的H通道）
+
+*相似度计算多样化*
+
+在区域合并的时候有说道计算区域之间的相似度，论文章介绍了四种相似度的计算方法。
+
+1.颜色（color）相似度
+
+使用L1-norm归一化获取图像每个颜色通道的25 bins的直方图，这样每个区域都可以得到一个75维的向量Ci={ci1,...,cin},区域之间颜色相似度通过下面的公式计算：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p2.jpg" /> 
+</div>
+
+在区域合并过程中使用需要对新的区域进行计算其直方图，计算方法：
+
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p3.jpg" /> 
+</div>
+
+2.纹理（texture）相似度
+
+这里的纹理采用SIFT特征。具体做法是对每个颜色通道的8个不同方向计算方差σ=1的高斯微分（Gaussian Derivative），每个通道每个方向获取10 bins的直方图（L1-norm归一化），这样就可以获取到一个240维的向量Ti={ti1,...,tin}.区域之间纹理相似度计算方式和颜色相似度计算方式类似，合并之后新区域的纹理特征计算方式和颜色特征计算相同：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p4.jpg" /> 
+</div>
+
+
+3.大小（size）相似度
+
+这里的大小是指区域中包含像素点的个数。使用大小的相似度计算，主要是为了尽量让小的区域先合并：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p5.jpg" /> 
+</div>
+
+其中size（im）表示图像的像素大小。
+
+4.吻合（fit）相似度
+
+这里主要是为了衡量两个区域是否更加“吻合”，检查两个区域间的重合度，如果一个区域包含另一个区域，逻辑上应该合并两者，如果两个区域相隔甚远，合并起来就会出现很奇怪的图形，作者使用一个Bounding Box(BB)包含两个Region，然后就可以计算了,其指标是合并后的区域的Bounding Box（能够框住区域的最小矩形（没有旋转））越小，其吻合度越高。其计算方式：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p6.jpg" /> 
+</div>
+
+最后将上述相似度计算方式组合到一起，可以写成如下:
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p7.jpg" /> 
+</div>
+
+这里的ai可以取0或者1。
+
+**给区域打分**
+
+通过上述的步骤我们能够得到很多很多的区域，但是显然不是每个区域作为目标的可能性都是相同的，因此我们需要衡量这个可能性，这样就可以根据我们的需要筛选区域建议个数。
+
+这篇文章做法是，给予最先合并的图片块较大的权重，比如最后一块完整图像权重为1，倒数第二次合并的区域权重为2以此类推。但是当我们策略很多，多样性很多的时候，这个权重就会有太多的重合，排序就成了问题。文章做法是给他们乘以一个随机数，看运气，然后对于相同的区域多次出现的也叠加权重，毕竟多个方法都说你是目标，也是有理由的。这样我就得到了所有区域的目标分数，也就可以根据自己的需要选择需要多少个区域了。
+
+
+**使用选择搜索（selective search)进行物体识别**
+
+通过前面的区域合并，可以得到一系列物体的位置假设L。接下来的任务就是如何从中找出物体的真正位置并确定物体的类别。常用的物体识别特征有HOG（Histograms of oriented gradients）和 bag-of-words 两种特征。在穷举搜索（Exhaustive Search）方法中，寻找合适的位置假设需要花费大量的时间，能选择用于物体识别的特征不能太复杂，只能使用一些耗时少的特征。由于选择搜索（Selective Search）在得到物体的位置假设这一步效率较高，其可以采用诸如SIFT等运算量大，表示能力强的特征。在分类过程中，系统采用的是SVM。
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p8.jpg" /> 
+</div>
+
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p9.png" /> 
+</div>
+
+特征生成
+
+系统在实现过程中，使用color-SIFT特征以及spatial pyramid divsion方法。在一个尺度下σ=1.2下抽样提取特征。使用SIFT、Extended Opponent SIFT、RGB-SIFT特征，在四层金字塔模型 1×1、2×2、3×3、4×4，提取特征，可以得到一个维的特征向量。
+
+训练过程
+
+  训练方法采用SVM。首先选择包含真实结果（ground truth）的物体窗口作为正样本（positive examples），选择与正样本窗口重叠20%~50%的窗口作为负样本（negative examples）。 在选择样本的过程中剔除彼此重叠70%的负样本，这样可以提供一个较好的初始化结果。 在重复迭代过程中加入hard negative examples（得分很高的负样本）由于训练模型初始化结果较好，模型只需要迭代两次就可以了。（样本的筛选很重要！！）
+
+
+测试的过程
+
+基本和训练过程相同: 首先用Selective Search方法得到测试图像上候选区域 ; 然后提取每个区域的特征向量; 送入已训练好的SVM进行软分类 ; 将这些区域按照概率值进行排序 ; 把概率值小于0.5的区域去除 ; 对那些概率值大于0.5的,计算每个区域与比它分数更高的区域之间的重叠程度,如果重叠程度大于30%,则把这个区域也去除了; 最后剩下的区域为目标区域.
+
+
+**性能评价**
+
+ 很自然地，通过算法计算得到的包含物体的Bounding Boxes与真实情况（ground truth）的窗口重叠越多，那么算法性能就越好。这里使用的指标是平均最高重叠率ABO（Average Best Overlap）。对于每个固定的类别 c，每个真实情况（ground truth）表示为 
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p9.jpg" /> 
+</div>
+
+令计算得到的位置假设L中的每个值l，那么 ABO的公式表达为：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p10.jpg" /> 
+</div>
+
+重叠率的计算方式：
+
+<div align=center>
+<img src="../img/R-CNN/select-search/p11.jpg" /> 
+</div>
+
+上面结果给出的是一个类别的ABO，对于所有类别下的性能评价，很自然就是使用所有类别的ABO的平均值MABO（Mean Average Best Overlap）来评价。
+
+```python
+pip install selectivesearch
+```
+
+```python
+from __future__ import (
+    division,
+    print_function,
+)
+
+import skimage.data
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import selectivesearch
+import numpy as np
+
+
+def main():
+
+    # 加载图片数据
+    img = skimage.data.astronaut() 
+
+    '''
+    执行selective search，regions格式如下
+    [
+                {
+                    'rect': (left, top, width, height),
+                    'labels': [...],
+                    'size': component_size
+                },
+                ...
+    ]
+    '''
+    img_lbl, regions = selectivesearch.selective_search(
+        img, scale=500, sigma=0.9, min_size=10)
+
+    #计算一共分割了多少个原始候选区域
+    temp = set()
+    for i in range(img_lbl.shape[0]):
+        for j in range(img_lbl.shape[1]):    
+            temp.add(img_lbl[i,j,3]) 
+    print(len(temp))       #286
+    
+    #计算利用Selective Search算法得到了多少个候选区域
+    print(len(regions))    #570
+    #创建一个集合 元素不会重复，每一个元素都是一个list(左上角x，左上角y,宽,高)，表示一个候选区域的边框
+    candidates = set()
+    for r in regions:
+        #排除重复的候选区
+        if r['rect'] in candidates:
+            continue
+        #排除小于 2000 pixels的候选区域(并不是bounding box中的区域大小)  
+        if r['size'] < 2000:
+            continue
+        #排除扭曲的候选区域边框  即只保留近似正方形的
+        x, y, w, h = r['rect']
+        if w / h > 1.2 or h / w > 1.2:
+            continue
+        candidates.add(r['rect'])
+
+    #在原始图像上绘制候选区域边框
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))
+    ax.imshow(img)
+    for x, y, w, h in candidates:
+        print(x, y, w, h)
+        rect = mpatches.Rectangle(
+            (x, y), w, h, fill=False, edgecolor='red', linewidth=1)
+        ax.add_patch(rect)
+
+    plt.show()
+    
+
+if __name__ == "__main__":
+    main()
+
+```
+-------
+
+### 16.SPP-net
+
+**摘要**
+
+当前深度卷积神经网络（CNNs）都需要输入的图像尺寸固定（比如224×224）。这种人为的需要导致面对任意尺寸和比例的图像或子图像时降低识别的精度。本文中，我们给网络配上一个叫做“空间金字塔池化”(spatial pyramid pooling,)的池化策略以消除上述限制。这个我们称之为SPP-net的网络结构能够产生固定大小的表示（representation）而不关心输入图像的尺寸或比例。金字塔池化对物体的形变十分鲁棒。由于诸多优点，SPP-net可以普遍帮助改进各类基于CNN的图像分类方法。在ImageNet2012数据集上，SPP-net将各种CNN架构的精度都大幅提升，尽管这些架构有着各自不同的设计。在PASCAL VOC 2007和Caltech101数据集上，SPP-net使用单一全图像表示在没有调优的情况下都达到了最好成绩。SPP-net在物体检测上也表现突出。使用SPP-net，只需要从整张图片计算一次特征图（feature map），然后对任意尺寸的区域（子图像）进行特征池化以产生一个固定尺寸的表示用于训练检测器。这个方法避免了反复计算卷积特征。在处理测试图像时，我们的方法在VOC2007数据集上，达到相同或更好的性能情况下，比R-CNN方法快24-102倍。在ImageNet大规模视觉识别任务挑战（ILSVRC）2014上，我们的方法在物体检测上排名第2，在物体分类上排名第3，参赛的总共有38个组。本文也介绍了为了这个比赛所作的一些改进。
+
+**简介**
+
+我们看到计算机视觉领域正在经历飞速的变化，这一切得益于深度卷积神经网络（CNNs）和大规模的训练数据的出现。近来深度网络对图像分类 ，物体检测 和其他识别任务 ，甚至很多非识别类任务上都表现出了明显的性能提升。
+
+然而，这些技术再训练和测试时都有一个问题，这些流行的CNNs都需要输入的图像尺寸是固定的（比如224×224），这限制了输入图像的长宽比和缩放尺度。当遇到任意尺寸的图像是，都是先将图像适应成固定尺寸，方法包括裁剪和变形，如图1（上）所示。但裁剪会导致信息的丢失，变形会导致位置信息的扭曲，就会影响识别的精度。另外，一个预先定义好的尺寸在物体是缩放可变的时候就不适用了。
+
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p2.png" /> 
+</div>
+
++ crop：不能包含完整的区域                        
++ warp：几何失真
+
+那么为什么CNNs需要一个固定的输入尺寸呢？CNN主要由两部分组成，卷积部分和其后的全连接部分。卷积部分通过滑窗进行计算，并输出代表激活的空间排布的特征图（feature map）。事实上，卷积并不需要固定的图像尺寸，他可以产生任意尺寸的特征图。而另一方面，根据定义，全连接层则需要固定的尺寸输入。因此固定尺寸的问题来源于全连接层，也是网络的最后阶段。本文引入一种空间金字塔池化( spatial pyramid pooling，SPP)层以移除对网络固定尺寸的限制。尤其是，将SPP层放在最后一个卷积层之后。SPP层对特征进行池化，并产生固定长度的输出，这个输出再喂给全连接层（或其他分类器）。换句话说，在网络层次的较后阶段（也就是卷积层和全连接层之间）进行某种信息“汇总”，可以避免在最开始的时候就进行裁剪或变形。下图展示了引入SPP层之后的网络结构变化。我们称这种新型的网络结构为SPP-net。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p3.png" /> 
+</div>
+
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p4.png" /> 
+</div>
+
+**什么是空间金字塔池化**
+
+以下图为例进行解释说明：
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p5.png" /> 
+</div>
+
+空间金字塔池化（普遍称谓：空间金字塔匹配spatial pyramid matching, SPM），是一种词袋(Bag-of-Words, BoW)模型的扩展。词袋模型是计算机视觉领域最成功的方法之一。
+
+ 黑色图片代表卷积之后的特征图，接着我们以不同大小的块来提取特征，分别是4X4，2X2，1X1，将这三张网格放到下面这张特征图上，就可以得到16+4+1=21种不同的块(Spatial bins)，我们从这21个块中，每个块提取出一个特征(比如最大池化)，这样刚好就是我们要提取的21维特征向量。这种以不同的大小格子的组合方式来池化的过程就是空间金字塔池化（SPP）。比如，要进行空间金字塔最大池化，其实就是从这21个图片块中，分别计算每个块的最大值，从而得到一个输出单元，最终得到一个21维特征的输出。
+
+从整体过程来看，就是如下图所示:
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p6.png" /> 
+</div>
+
+输出向量大小为Mk，M=#bins， k=#filters，作为全连接层的输入。
+
+例如上图，所以Conv5计算出的feature map也是任意大小的，现在经过SPP之后，就可以变成固定大小的输出了，以上图为例，一共可以输出（16+4+1）*256的特征。
+
+**金字塔池化的意义是什么？**
+
+总结而言，当网络输入的是一张任意大小的图片，这个时候我们可以一直进行卷积、池化，直到网络的倒数几层的时候，也就是我们即将与全连接层连接的时候，就要使用金字塔池化，使得任意大小的特征图都能够转换成固定大小的特征向量，这就是空间金字塔池化的意义（多尺度特征提取出固定大小的特征向量）,实验表明多尺度在深度网络上的精度非常重要。
+
+**网络的训练**
+
+单一尺寸训练
+
+如前人的工作一样，我们首先考虑接收裁剪成224×224图像的网络。裁剪的目的是数据增强。对于一个给定尺寸的图像，我们先计算空间金字塔池化所需要的块（bins）的大小。试想一个尺寸是axa（也就是13×13）的conv5之后特征图。对于nxn块的金字塔级，我们实现一个滑窗池化过程，窗口大小为win = 上取整[a/n]，步幅str = 下取整[a/n]. 对于l层金字塔，我们实现l个这样的层。然后将l个层的输出进行连接输出给全连接层。图4展示了一个cuda卷积网络风格的3层金字塔的样例。(3×3, 2×2, 1×1)。
+单一尺寸训练的主要目的是开启多级别池化行为。实验表明这是获取精度的一个原因。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p7.png" /> 
+</div>
+
+多尺寸训练
+
+携带SPP的网络可以应用于任意尺寸，为了解决不同图像尺寸的训练问题，我们考虑一些预设好的尺寸。现在考虑这两个尺寸：180×180,224×224。我们使用缩放而不是裁剪，将前述的224
+的区域图像变成180大小。这样，不同尺度的区域仅仅是分辨率上的不同，而不是内容和布局上的不同。对于接受180输入的网络，我们实现另一个固定尺寸的网络。本例中，conv5输出的特征图尺寸是axa=10×10。我们仍然使用win = 上取整[a/n]，str = 下取整[a/n]，实现每个金字塔池化层。这个180网络的空间金字塔层的输出的大小就和224网络的一样了。
+这样，这个180网络就和224网络拥有一样的参数了。换句话说，训练过程中，我们通过使用共享参数的两个固定尺寸的网络实现了不同输入尺寸的SPP-net。
+为了降低从一个网络（比如224）向另一个网络（比如180）切换的开销，我们在每个网络上训练一个完整的epoch，然后在下一个完成的epoch再切换到另一个网络（权重保留）。依此往复。实验中我们发现多尺寸训练的收敛速度和单尺寸差不多。
+多尺寸训练的主要目的是在保证已经充分利用现在被较好优化的固定尺寸网络实现的同时，模拟不同的输入尺寸。除了上述两个尺度的实现，我们也在每个epoch中测试了不同的sxs输入，s是从180到224之间均匀选取的。后面将在实验部分报告这些测试的结果。
+注意，上面的单尺寸或多尺寸解析度只用于训练。在测试阶段，是直接对各种尺寸的图像应用SPP-net的。
+
+
+**SPP-Net用于物体检测**
+
+深度网络已经被用于物体检测。我们简要回顾一下最先进的R-CNN。R-CNN首先使用选择性搜索从每个图像中选出2000个候选窗口。然后将每个窗口中的图像区域变形到固定大小227×227。一个事先训练好的深度网络被用于抽取每个窗口的特征。然后用二分类的SVM分类器在这些特征上针对检测进行训练。R-CNN产生的引人注目的成果。但R-CNN在一张图像的2000个窗口上反复应用深度卷积网络，十分耗时。在测试阶段的特征抽取式主要的耗时瓶颈。
+
+对卷积层可视化发现：输入图片的某个位置的特征反应在特征图上也是在相同位置。基于这一事实，对某个ROI区域的特征提取只需要在特征图上的相应位置提取就可以了。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p15.png" /> 
+</div>
+
+我们将SPP-net应用于物体检测。只在整张图像上抽取一次特征。然后在每个特征图的候选窗口上应用空间金字塔池化，形成这个窗口的一个固定长度表示（见下图）。因为只应用一次卷积网络，我们的方法快得多。我们的方法是从特征图中直接抽取特征，而R-CNN则要从图像区域抽取。之前的一些工作中，可变性部件模型(Deformable Part Model, DPM)从HOG特征图的窗口中抽取图像，选择性搜索方法从SIFT编码后的特征图的窗口中抽取特征。Overfeat也是从卷积特征图中抽取特征，但需要预定义的窗口尺寸。作为对比，我们的特征抽取可以在任意尺寸的深度卷积特征图窗口上。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p8.png" /> 
+</div>
+
+
+我们使用选择性搜索的“fast”模式对每张图片产生2000个候选窗口。然后缩放图像以满足min(w;h) = s，并且从整张图像中抽取特征图。我们暂时使用ZF-5的SPP-net模型（单一尺寸训练）。在每个候选窗口，我们使用一个4级空间金字塔（1×1, 2×2, 3×3, 6×6, 总共50块）。每个窗口将产生一个12800（256×50）维的表示。这些表示传递给网络的全连接层。然后我们针对每个分类训练一个二分线性SVM分类器。我们使用真实标注的窗口去生成正例。负例是那些与正例窗口重叠不超过30%的窗口（使用IoU比例）。
+
+如果一个负例与另一个负例重叠超过70%就会被移除。我们使用标准的难负例挖掘算法（standard hard negative mining ）训练SVM。这个步骤只迭代一次。对于全部20个分类训练SVM小于1个小时。测试阶段，训练器用来对候选窗口打分。然后在打分窗口上使用最大值抑制算法（30%的阈值）。
+
+通过多尺度特征提取，我们的方法可以得到改进。将图像缩放成min(w;h) = s 属于 S = {480; 576; 688; 864; 1200 }，然后针对每个尺度计算conv5的特征图。一个结合这些这些不同尺度特征的策略是逐个channel的池化。但我们从经验上发现另一个策略有更好的效果。对于每个候选窗口，我们选择一个单一尺度s 属于 S，令缩放后的候选窗口的像素数量接近与224×224。然后我们从这个尺度抽取的特征图去计算窗口的特征。如果这个预定义的尺度足够密集，窗口近似于正方形。我们的方法粗略地等效于将窗口缩放到224×224，然后再从中抽取特征。但我们的方法在每个尺度只计算一次特征图，不管有多少个候选窗口。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p9.png" /> 
+</div>
+
+
+*具体步骤解析：*
+
+使用SPP-net进行物体检测的流程如下：
+
+①首先通过选择性搜索，对待检测的图片进行搜索出2000个候选窗口。这一步和R-CNN一样。
+
+②特征提取，这点和R-CNN是不同的，具体差别上面已经讲诉。
+
+③最后一步也是和R-CNN一样，采用SVM算法进行特征向量分类识别。
+这样一来，就有个问题需要考虑，如何找到原始图片的候选框区域与feature map中提出特征的对应位置呢，因为候选框是通过一整张原图片进行检测得到的，而feature maps的大小和原始图片的大小是不同的，feature maps是经过原始图片卷积、下采样等一系列操作后得到的。那么我们要如何在feature maps中找到对应的区域呢？这个答案可以在文献中的最后面附录中找到答案：APPENDIX A：
+
+Mapping a Window to Feature Maps。这个作者直接给出了一个很方便我们计算的公式：假设(x’,y’)表示特征图上的坐标点，坐标点(x,y)表示原输入图片上的点，那么它们之间有如下转换关系：
+
+(x,y)=(S*x’,S*y’)
+
+其中S的就是CNN中所有的strides的乘积。比如paper所用的ZF-5：
+
+S=2X2X2X2=16
+
+而对于Overfeat-5/7就是S=12，这个可以看一下下面的表格：
+
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p11.png" /> 
+</div>
+需要注意的是Strides包含了池化、卷积的stride。自己计算一下Overfeat-5/7(前5层)是不是等于12。
+
+反过来，我们希望通过(x,y)坐标求解(x’,y’)，那么计算公式如下：
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p12.png" /> 
+</div>
+
+因此我们输入原图片检测到的windows，可以得到每个矩形候选框的四个角点，然后我们再根据公式：
+
+Left、Top:
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p13.png" /> 
+</div>
+
+Right、Bottom：
+
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p14.png" /> 
+</div>
+
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p16.png" /> 
+</div>
+
+
+最后，用一张图来完整的描述SPP-Net。
+
+<div align=center>
+<img src="../img/R-CNN/sppnet/p10.png" /> 
+</div>
 
 
 
@@ -589,7 +1787,25 @@ PASCAL VOC 2012测试集上实现了53.3%的mAP；
 
 <https://blog.csdn.net/mao_kun/article/details/50576003>
 
+Selective Search for Object Recognition
 
-### 2.SPP-net
+Efficient Graph-Based Image Segmentation
+
+<http://cs.brown.edu/people/pfelzens/segment/>
+
+SIFT: Distance image features from scale-invariant keypoints
+
+HOG: Histograms of oriented gradients for human detection
+
+DPM: Object detection with discriminatively trained part based models
+
+SIFT<https://wenku.baidu.com/view/87270d2c2af90242a895e52e.html?sxts=1547523076821>
+
+BOW<https://wenku.baidu.com/view/6370f28d26fff705cc170aab.html?sxts=1547522805171>
+
+
+
+
+
 
 

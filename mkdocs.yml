@@ -6,9 +6,11 @@ pages:
   - 主页: index.md
   - ResNet: chapter1.md
   - Google Inception: chapter2.md
-  - R-CNN & SPP-net: chapter3.md
+  - R-CNN、图像特征提取、selective Search、SPP-net: chapter3.md
   - Fast R-CNN: chapter4.md
   - Faster R-CNN: chapter5.md
+  - SSD: ssd.md
+  - Mask R-CNN: mask-r-cnn.md
   - YOLO: chapter6.md
   - FCN(反卷积),STNet,CNN与RNN的混合结构: chapter7.md
   - 关于: about.md

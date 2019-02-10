@@ -14,17 +14,13 @@ More learning: XuJing'Home [https://dataxujing.github.io/](https://dataxujing.gi
 ----
 
 + ResNet
-
 + Google Inception
-
-+ R-CNN & SPP-net
-
++ R-CNN, Selective Search, SPP-net
 + Fast R-CNN
-
 + Faster R-CNN
-
++ SSD
++ Mask R-CNN
 + YOLO
-
 + FCN(反卷积),STNet,CNN与RNN的混合结构
 
 ----
